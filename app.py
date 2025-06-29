@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, redirect, flash, url_for, jso
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
+import os
 
 app = Flask(__name__)
 app.secret_key = "heinerkacesecretcode"
@@ -229,4 +230,6 @@ def delete_task(task_id):
 # === Run the app ===
 if __name__ == "__main__":
     print("Starting")
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
