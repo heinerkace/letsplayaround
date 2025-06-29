@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Task Board</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <pre class="ascii-header">
+╔════════════════════════════╗
+║         TASK BOARD         ║
+╚════════════════════════════╝
+    </pre>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="board">
+      {% for status, tasks in grouped_tasks.items() %}
+        <div class="column">
+          <h2>{{ status }}</h2>
+
+          {% if status == "To Do" %}
+            <div class="add-task-inline" onclick="showInputBox()" onmouseenter="hovering = true;" onmouseleave="hovering = false;">
+              <span id="add-placeholder">+ Add a task</span>
+              <input id="add-input" type="text" placeholder="Enter task title..." onkeydown="handleKey(event)" style="display:none;" />
+            </div>
+          {% endif %}
+
+          <!-- Dropzone container -->
+          <div class="dropzone" data-status="{{ status }}">
+            {% if tasks %}
+              {% for task in tasks %}
+                <div class="task-card" data-task-id="{{ task.task_id }}" draggable="true">
+                  <div class="task-view">
+                    <h3>{{ task.title }}</h3>
+                    <p>{{ task.description }}</p>
+                    <a href="#" onclick="event.preventDefault(); enableEdit(this)">Edit</a> |
+                    <a href="{{ url_for('delete_task', task_id=task.task_id) }}">Delete</a>
+                  </div>
+                  <div class="task-edit" style="display: none;">
+                    <input type="text" class="edit-title" value="{{ task.title }}" />
+                    <textarea class="edit-desc">{{ task.description }}</textarea>
+                    <button class="formbuttons" onclick="submitEdit(this, {{ task.task_id }})">Save</button>
+                    <button class="formbuttons" onclick="cancelEdit(this)">Cancel</button>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+
+          {% if not tasks %}
+            <p class="no-tasks" data-status="{{ status }}" style="color: #666;">No tasks in this column yet.</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script>
+    let hovering = false;
+
+    function showInputBox() {
+      const input = document.getElementById("add-input");
+      const placeholder = document.getElementById("add-placeholder");
+      placeholder.style.display = "none";
+      input.style.display = "block";
+      input.focus();
+    }
+
+    function handleKey(event) {
+      if (event.key === "Enter") {
+        const title = event.target.value.trim();
+        if (!title) return;
+
+        fetch("/add-task", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            title: title,
+            description: "",
+            status: "To Do"
+          })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              location.reload();
+            } else {
+              alert("Error: could not add task.");
+            }
+          });
+
+        event.target.value = "";
+        event.target.style.display = "none";
+        document.getElementById("add-placeholder").style.display = "block";
+      }
+    }
+
+    function enableEdit(el) {
+      const taskCard = el.closest(".task-card");
+      taskCard.querySelector(".task-view").style.display = "none";
+      taskCard.querySelector(".task-edit").style.display = "block";
+    }
+
+    function cancelEdit(el) {
+      const taskCard = el.closest(".task-card");
+      taskCard.querySelector(".task-edit").style.display = "none";
+      taskCard.querySelector(".task-view").style.display = "block";
+    }
+
+    function submitEdit(el, taskId) {
+      const taskCard = el.closest(".task-card");
+      const newTitle = taskCard.querySelector(".edit-title").value.trim();
+      const newDesc = taskCard.querySelector(".edit-desc").value.trim();
+
+      if (!newTitle) {
+        alert("Title can't be empty!");
+        return;
+      }
+
+      fetch(`/edit-task-inline/${taskId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: newTitle,
+          description: newDesc
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            // Update the view inline without reload
+            taskCard.querySelector(".task-view h3").textContent = newTitle;
+            taskCard.querySelector(".task-view p").textContent = newDesc;
+            cancelEdit(el);
+          } else {
+            alert("Error updating task: " + (data.error || "Unknown error"));
+          }
+        })
+        .catch(err => {
+          alert("Error updating task: " + err);
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      let draggedTaskId = null;
+
+      // Set draggable attributes and dragstart listeners
+      document.querySelectorAll(".task-card").forEach(card => {
+        card.addEventListener("dragstart", e => {
+          draggedTaskId = card.dataset.taskId;
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", draggedTaskId);
+          card.classList.add("dragging");
+        });
+
+        card.addEventListener("dragend", e => {
+          card.classList.remove("dragging");
+        });
+      });
+
+      // Allow drop on columns
+      document.querySelectorAll(".column").forEach(column => {
+        column.addEventListener("dragover", e => {
+          e.preventDefault(); // Allow drop
+          e.dataTransfer.dropEffect = "move";
+          column.classList.add("drag-over");
+        });
+
+        column.addEventListener("dragleave", e => {
+          column.classList.remove("drag-over");
+        });
+
+        column.addEventListener("drop", e => {
+          e.preventDefault();
+          column.classList.remove("drag-over");
+
+          const newStatus = column.querySelector("h2").textContent.trim();
+          const taskId = e.dataTransfer.getData("text/plain");
+          if (!taskId) return;
+
+          const taskCard = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+          if (!taskCard) return;
+
+          const oldColumn = taskCard.closest(".column");
+          const oldDropzone = oldColumn.querySelector(".dropzone");
+          const newDropzone = column.querySelector(".dropzone");
+
+          // Move the task card visually into the dropzone div
+          newDropzone.appendChild(taskCard);
+
+          // Remove "No tasks" message from new column if present
+          const noTasksMsgNew = column.querySelector(`.no-tasks[data-status="${newStatus}"]`);
+          if (noTasksMsgNew) {
+            noTasksMsgNew.remove();
+          }
+
+          // If old column is now empty, add "No tasks" message back
+          if (oldDropzone.children.length === 0) {
+            const oldStatus = oldColumn.querySelector("h2").textContent.trim();
+            const msg = document.createElement("p");
+            msg.textContent = "No tasks in this column yet.";
+            msg.classList.add("no-tasks");
+            msg.dataset.status = oldStatus;
+            msg.style.color = "#666";
+            oldColumn.appendChild(msg);
+          }
+
+          // Update backend
+          fetch(`/edit-task-inline/${taskId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus })
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (!data.success) {
+                alert("Failed to update task: " + (data.error || "Unknown error"));
+              }
+            })
+            .catch(err => {
+              alert("Error updating task status: " + err);
+            });
+        });
+      });
+    });
+  </script>
+</body>
+</html>

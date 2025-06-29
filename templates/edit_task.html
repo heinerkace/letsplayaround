@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Task</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <pre class="ascii-header">
+╔════════════════════════════╗
+║         EDIT TASK          ║
+╚════════════════════════════╝
+            </pre>
+    <form method="POST">
+      <label for="title">Title:</label>
+      <input type="text" name="title" id="title" value="{{ task.title }}" required>
+
+      <label for="description">Description:</label>
+      <textarea name="description" id="description">{{ task.description }}</textarea>
+
+      <label for="status">Status:</label>
+      <select name="status" id="status">
+        <option value="To Do" {% if task.status == 'To Do' %}selected{% endif %}>To Do</option>
+        <option value="In Progress" {% if task.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+        <option value="Done" {% if task.status == 'Done' %}selected{% endif %}>Done</option>
+      </select>
+
+      <button type="submit">Update Task</button>
+      <a href="{{ url_for('index') }}">Cancel</a>
+    </form>
+  </div>
+</body>
+</html>

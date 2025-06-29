@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Task Board</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <pre class="ascii-header">
+╔════════════════════════════╗
+║         TASK BOARD         ║
+╚════════════════════════════╝
+            </pre>
+    <a href="{{ url_for('add_task') }}" class="button">Add Task</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="board">
+      {% for status, tasks in grouped_tasks.items() %}
+        <div class="column">
+          <h2>{{ status }}</h2>
+          {% for task in tasks %}
+            <div class="task-card">
+              <h3>{{ task.title }}</h3>
+              <p>{{ task.description }}</p>
+              <a href="{{ url_for('edit_task', task_id=task.task_id) }}">Edit</a> |
+              <a href="{{ url_for('delete_task', task_id=task.task_id) }}">Delete</a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html?
