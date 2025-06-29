@@ -5,3 +5,9 @@
 <li>Add cool stuff</li>
   <li>Make the app nicer</li>
 </ol>
+
+#TODO 
+-login page (stuff kace suggested)
+- add user authenication
+- create project page to see progress on tasks
+- create a 
